@@ -1,5 +1,3 @@
-pip install openpyxl
-
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -102,4 +100,5 @@ if uploaded_file is not None:
         file_name='Final_Orders.xlsx',
         mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
     )
+
 
