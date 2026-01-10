@@ -3,42 +3,44 @@ import pandas as pd
 import numpy as np
 from io import BytesIO
 
-st.title("Order Processing App (Excel version)")
-st.write("Upload your Excel file to process the orders.")
+st.title("Order Processing App (CSV version)")
+st.write("Upload your CSV file to process the orders.")
 
-# Upload Excel file
-uploaded_file = st.file_uploader("Choose an Excel file", type=["xlsx"])
+# Upload CSV file
+uploaded_file = st.file_uploader("Choose a CSV file", type=["csv"])
 
 if uploaded_file is not None:
     try:
-        data = pd.read_excel(uploaded_file)
-    except ValueError:
-        st.error("The uploaded Excel file is empty or invalid.")
+        data = pd.read_csv(uploaded_file, encoding="utf-8")
+    except UnicodeDecodeError:
+        data = pd.read_csv(uploaded_file, encoding="latin1")
+    except Exception:
+        st.error("The uploaded CSV file is empty or invalid.")
         st.stop()
 
     # Check if dataframe has columns
     if data.empty or data.columns.size == 0:
-        st.error("The uploaded Excel file has no columns or data.")
+        st.error("The uploaded CSV file has no columns or data.")
         st.stop()
 
     # Ensure phone_number is string
     data.phone_number = data.phone_number.astype(str)
 
     # Remove leading '2' if present
-    start_2 = data['phone_number'].apply(lambda x: x[0] == '2')
+    start_2 = data['phone_number'].apply(lambda x: x.startswith('2'))
     data.loc[start_2, 'phone_number'] = data.loc[start_2, 'phone_number'].apply(lambda x: x[2:])
 
     # Create order_code
     data['order_code'] = "20" + data["phone_number"]
 
     # Keep only first name
-    data.customer_name = data.customer_name.apply(lambda x: x.split(" ")[0])
+    data.customer_name = data.customer_name.astype(str).apply(lambda x: x.split(" ")[0])
 
     # SKU mappings
     mapping_for_face = {
         "L3CEGUOR":1, "AllureFESS3":1, "GOGWEZ84":2, "AllureFES2":1,
-        "6G7ODORP":2, "Allure15948":1, "BDHSOCZC": np.nan, "Allure12345": np.nan,
-        "TNQUOCHL": np.nan, 'EOQDNN83':1
+        "6G7ODORP":2, "Allure15948":1, "BDHSOCZC": np.nan,
+        "Allure12345": np.nan, "TNQUOCHL": np.nan, 'EOQDNN83':1
     }
 
     mapping_for_eye = {
@@ -54,9 +56,17 @@ if uploaded_file is not None:
     }
 
     # Compute serum counts
-    data['Face Serum Count'] = pd.to_numeric((data.sku_code.map(mapping_for_face)) * data.sku_pieces, errors='coerce').astype("Int64")
-    data['Eye Serum Count'] = pd.to_numeric((data.sku_code.map(mapping_for_eye)) * data.sku_pieces, errors='coerce').astype("Int64")
-    data['Sunscreen Count'] = pd.to_numeric((data.sku_code.map(mapping_for_sun)) * data.sku_pieces, errors='coerce').astype("Int64")
+    data['Face Serum Count'] = (
+        data.sku_code.map(mapping_for_face) * data.sku_pieces
+    ).astype("Int64")
+
+    data['Eye Serum Count'] = (
+        data.sku_code.map(mapping_for_eye) * data.sku_pieces
+    ).astype("Int64")
+
+    data['Sunscreen Count'] = (
+        data.sku_code.map(mapping_for_sun) * data.sku_pieces
+    ).astype("Int64")
 
     # Aggregate by order_code
     data = data.groupby("order_code", as_index=False).agg({
@@ -68,27 +78,22 @@ if uploaded_file is not None:
         "Sunscreen Count": "sum",
     })
 
-    # Convert counts to string
-    data = data.astype({
-        "Face Serum Count": str,
-        "Eye Serum Count": str,
-        "Sunscreen Count": str
-    })
-
     # Create final order description
     data["Final Order"] = (
-        (data['Face Serum Count'] > '0') * (data['Face Serum Count'].astype(str) + " سيرم بشرة ") +
-        (data['Eye Serum Count'] > '0') * (data['Eye Serum Count'].astype(str) + " سيرم عين ") +
-        (data['Sunscreen Count'] > '0') * (data['Sunscreen Count'].astype(str) + " صان اسكرين ")
+        (data['Face Serum Count'] > 0) * (data['Face Serum Count'].astype(str) + " سيرم بشرة ") +
+        (data['Eye Serum Count'] > 0) * (data['Eye Serum Count'].astype(str) + " سيرم عين ") +
+        (data['Sunscreen Count'] > 0) * (data['Sunscreen Count'].astype(str) + " صان اسكرين ")
     )
-    data['Face Serum Count']=data['Final Order']
+
+    data['Face Serum Count'] = data['Final Order']
+
     st.write("Processed Data:")
     st.dataframe(data)
-    
-    # Convert dataframe to Excel in memory
+
+    # Convert dataframe to Excel for download
     def convert_df_to_excel(df):
         output = BytesIO()
-        df.to_excel(output, index=False, engine='openpyxl')
+        df.to_excel(output, index=False)
         output.seek(0)
         return output
 
@@ -100,5 +105,3 @@ if uploaded_file is not None:
         file_name='Final_Orders.xlsx',
         mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
     )
-
-
