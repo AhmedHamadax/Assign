@@ -113,11 +113,11 @@ if uploaded_file is not None:
         (data["eye serum count"] > 0) * (data["eye serum count"].astype(str) + " سيرم عين ") +
         (data["sunscreen count"] > 0) * (data["sunscreen count"].astype(str) + " صان اسكرين ")
     )
-
+    data['face serum count']=data["final order"]
     # ---------------- Preview ----------------
     st.subheader("Processed Data")
     st.dataframe(data, use_container_width=True)
-
+    
     # ---------------- Download Excel ----------------
     def convert_to_excel(df):
         output = BytesIO()
@@ -131,3 +131,4 @@ if uploaded_file is not None:
         file_name="Final_Orders.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
+
